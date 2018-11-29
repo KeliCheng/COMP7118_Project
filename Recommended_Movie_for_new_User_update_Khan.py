@@ -121,18 +121,23 @@ def new_user_input(m3):
 			cc=cc+1
 			print(str(cc)+" "+str(tt)+"\n")
 			n_m[cc]=tt
-	print("Your Choice:")
-	hh=int(input())
+	gf=[]
+	print("Enter any 5 of Your Choice:")
+	for t in range(0,5):
+		hh=int(input())
+		if hh not in gf:
+			gf.append(int(hh))
 	mv_tc=[]
 	for i in n_m:
-		if int(i)==int(hh):
+		for re in gf:
+			if int(i)==int(re):
 			#print(i,hh)
-			for tz in ty_m_v:
-				if tz==n_m[i]:
-					#print(tz,n_m[i])
-					#sys.exit()
-					for t12 in ty_m_v[tz]:
-						mv_tc.append(t12)
+				for tz in ty_m_v:
+					if tz==n_m[i]:
+						#print(tz,n_m[i])
+						#sys.exit()
+						for t12 in ty_m_v[tz]:
+							mv_tc.append(t12)
 	#print(len(mv_tc),mv_tc)
 	#sys.exit()
 	for c1 in range(0,len(mv_tc)):
