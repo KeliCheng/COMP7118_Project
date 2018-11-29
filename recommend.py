@@ -2,11 +2,19 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import pairwise_distances
 from user import User
+import pickle
 
-
+'''
 ratings_file = 'ml-latest-small/ratings.csv'
 movies_file = 'ml-latest-small/movies.csv'
 export = 'ml-latest-small/ratings_new.csv'
+'''
+
+# New subset of the full-size MovieLens set
+ratings_file = 'ml-subset/finalRatings.csv'
+movies_file = 'ml-subset/finalMovies.csv'
+export = 'ml-subset/finalRatings_new.csv'
+
 num_genre_col = 10 # number of columns after splitting the genre string of movies df
 
 
@@ -96,15 +104,96 @@ def first_recomm(selected_genres):
 
 # ------------------------------------------------------------------------------------------------
 
-movies_df = pd.read_csv(movies_file)
-ratings_df = pd.read_csv(ratings_file)
+# Speed up the process by storing the matrix objects.
+# This way, we don't need to recalculate the distances when starting the app.
+# If the data to use changes, flip this switch for the first run.
+recalcMatrix = False
 
-movies, genres, movie_matrix = gen_movie_matrix()
-movies_cos_sim = 1-pairwise_distances(movie_matrix, metric="cosine")
-#
+if recalcMatrix:
+	movies_df = pd.read_csv(movies_file)
+	ratings_df = pd.read_csv(ratings_file)
 
-users, user_matrix = gen_user_matrix()
-user_cos_sim = 1-pairwise_distances(user_matrix, metric="cosine")
+	movies, genres, movie_matrix = gen_movie_matrix()
+	movies_cos_sim = 1-pairwise_distances(movie_matrix, metric="cosine")
+
+	users, user_matrix = gen_user_matrix()
+	user_cos_sim = 1-pairwise_distances(user_matrix, metric="cosine")
+
+	file = open('movies.pickle', 'wb')
+	pickle.dump(movies, file)
+	file.close()
+
+	file = open('genres.pickle', 'wb')
+	pickle.dump(genres, file)
+	file.close()
+
+	file = open('movie_matrix.pickle', 'wb')
+	pickle.dump(movie_matrix, file)
+	file.close()
+
+	file = open('movies_cos_sim.pickle', 'wb')
+	pickle.dump(movies_cos_sim, file)
+	file.close()
+
+	file = open('users.pickle', 'wb')
+	pickle.dump(users, file)
+	file.close()
+
+	file = open('user_matrix.pickle', 'wb')
+	pickle.dump(user_matrix, file)
+	file.close()
+
+	file = open('user_cos_sim.pickle', 'wb')
+	pickle.dump(user_cos_sim, file)
+	file.close()
+
+	file = open('movies_df.pickle', 'wb')
+	pickle.dump(movies_df, file)
+	file.close()
+
+	file = open('ratings_df.pickle', 'wb')
+	pickle.dump(ratings_df, file)
+	file.close()
+
+else:
+	file = open('movies.pickle', 'rb')
+	movies = pickle.load(file)
+	file.close()
+
+	file = open('genres.pickle', 'rb')
+	genres = pickle.load(file)
+	file.close()
+
+	file = open('movie_matrix.pickle', 'rb')
+	movie_matrix = pickle.load(file)
+	file.close()
+
+	file = open('movies_cos_sim.pickle', 'rb')
+	movies_cos_sim = pickle.load(file)
+	file.close()
+
+	file = open('users.pickle', 'rb')
+	users = pickle.load(file)
+	file.close()
+
+	file = open('user_matrix.pickle', 'rb')
+	user_matrix = pickle.load(file)
+	file.close()
+
+	file = open('user_cos_sim.pickle', 'rb')
+	user_cos_sim = pickle.load(file)
+	file.close()
+
+	file = open('movies_df.pickle', 'rb')
+	movies_df = pickle.load(file)
+	file.close()
+
+	file = open('ratings_df.pickle', 'rb')
+	ratings_df = pickle.load(file)
+	file.close()
+
+
+
 
 # first_recomm(['Comedy'])
 

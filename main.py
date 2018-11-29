@@ -120,35 +120,35 @@ def display_page(pathname):
 
 # =======================================================================================
 # Callback of new user's selection
-# @app.callback(
-#     Output('new-content1', 'children'),
-#     [Input('submit-button', 'n_clicks')],
-#     [State('genre-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
+'''
+@app.callback(
+    Output('new-content1', 'children'),
+    [Input('submit-button', 'n_clicks')],
+    [State('genre-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
+def update_output(n_clicks, g, o, r):
+    global current_movie
 
-# def update_output(n_clicks, g, o, r):
-#     global current_movie
+    print(g, o, r)
 
-#     print(g, o, r)
+    if n_clicks == 1:
 
-#     if n_clicks == 1:
+        m, title  = first_recomm(value)
+        current_movie = m
 
-#         m, title  = first_recomm(value)
-#         current_movie = m
+         return [html.H5('Recommendation: '), html.H6(title), genre_dropdown(),
+         opinion_opts(), rating_opts()]
 
-#         return [html.H5('Recommendation: '), html.H6(title), genre_dropdown(),
-#         opinion_opts(), rating_opts()]
-
-#     else:
-#         if o == "Interested":
-#             return [html.H5('Interested'), genre_dropdown(),
-#             opinion_opts(), rating_opts()]
-#         elif o == "Not Interested":
-#             return [html.H5('Not Interested'), genre_dropdown(),
-#             opinion_opts(), rating_opts()]
-#         else:
-#             return [html.H5('Give a rate'), genre_dropdown(),
-#             opinion_opts(), rating_opts()]
-
+     else:
+         if o == "Interested":
+             return [html.H5('Interested'), genre_dropdown(),
+             opinion_opts(), rating_opts()]
+         elif o == "Not Interested":
+             return [html.H5('Not Interested'), genre_dropdown(),
+             opinion_opts(), rating_opts()]
+         else:
+             return [html.H5('Give a rate'), genre_dropdown(),
+             opinion_opts(), rating_opts()]
+'''
 
 
 @app.callback(
