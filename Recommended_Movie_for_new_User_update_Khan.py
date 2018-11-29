@@ -122,7 +122,7 @@ def new_user_input(m3):
 			print(str(cc)+" "+str(tt)+"\n")
 			n_m[cc]=tt
 	gf=[]
-	print("Enter any 5 of Your Choice:")
+	print("Enter any 5 of Your Choice( Here the Choice will be the index number of the movie types mentioned in the above list. For example 1 Action,here 1 is index of Action type):")
 	for t in range(0,5):
 		hh=int(input())
 		if hh not in gf:
