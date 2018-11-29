@@ -107,7 +107,7 @@ def first_recomm(selected_genres):
 # Speed up the process by storing the matrix objects.
 # This way, we don't need to recalculate the distances when starting the app.
 # If the data to use changes, flip this switch for the first run.
-recalcMatrix = False
+recalcMatrix = True
 
 if recalcMatrix:
 	movies_df = pd.read_csv(movies_file)
