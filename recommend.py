@@ -60,7 +60,36 @@ def gen_movie_matrix():
 '''find most similar item based on cosine similarity'''
 def most_similar_item(cos_sim, l, item, n):
 	i = l.index(item)
-	j = cos_sim[i].argsort()[-(n+1)]
+	j = cos_sim[i].argsort().tolist()[-(n+1)]
+
+	return j # the index
+
+'''find most similar item based on cosine similarity except from those in list'''
+def most_similar_item_except(cos_sim, l, item, n, exceptions):
+
+	exceptions = [l.index(x) for x in exceptions]
+
+	i = l.index(item)
+	simList = cos_sim[i].argsort().tolist()
+
+	simList = [x for x in simList if x not in exceptions]
+
+	j = simList[-(n+1)]
+
+	return j # the index
+
+
+'''find least similar item based on cosine similarity except from those in list'''
+def least_similar_item_except(cos_sim, l, item, n, exceptions):
+
+	exceptions = [l.index(x) for x in exceptions]
+
+	i = l.index(item)
+	simList = cos_sim[i].argsort().tolist()
+
+	simList = [x for x in simList if x not in exceptions]
+
+	j = simList[n-1]
 
 	return j # the index
 
@@ -71,7 +100,6 @@ def least_similar_item(cos_sim, l, item, n):
 	j = cos_sim[i].argsort()[n-1]
 
 	return j # the index
-
 
 
 ''' find a most similar user based on current users profile '''
@@ -88,6 +116,22 @@ def get_recommendation(u_id):
 			return int(v['userId']), m['title'].to_string()
 
 
+''' find a most similar movie based on genre and recommend '''
+def get_movie_recommendation(m_id,cycled_movies):
+	global movie_matrix, movies_cos_sim, movies, ratings_df
+	j = most_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find most similar movie
+
+	return j
+
+
+''' find a least similar movie based on genre and recommend '''
+def get_movie_recommendation_inverse(m_id,cycled_movies):
+	global movie_matrix, movies_cos_sim, movies, ratings_df
+	j = least_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find most similar movie
+
+	return j
+
+
 def first_recomm(selected_genres):
 	# find movies with highest ratings & in genres selected by the user
 	sorted_ratings = ratings_df.groupby('movieId').rating.mean().sort_values(ascending=False)
@@ -98,7 +142,15 @@ def first_recomm(selected_genres):
 				return m['movieId'], m['title']
 
 
+def subseq_recomm(current_movie,cycled_movies,opinion):
 
+	if opinion == 'Interested':
+		m = get_movie_recommendation(current_movie,cycled_movies)
+	else:
+		m = get_movie_recommendation_inverse(current_movie,cycled_movies)
+	m = movies_df.iloc[m]
+
+	return m['movieId'], m['title']
 
 
 

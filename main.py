@@ -8,6 +8,7 @@ from user import User
 
 current_user = None
 current_movie = None
+cycled_movies = []
 
 print(dcc.__version__) # 0.6.0 or above is required
 
@@ -18,10 +19,19 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 app.config['suppress_callback_exceptions']=True
 
 
-def genre_dropdown():
+def genre_dropdown(hidden=False):
     opt = []
     for g in genres:
         opt.append({'label': g, 'value': g})
+
+    if hidden:
+        return dcc.Dropdown(
+                        id='genre-dropdown',
+                        options=opt,
+                        placeholder="Select your favorite genres",
+                        multi=True,
+                        style={'display': 'none'}
+                        )
 
     return dcc.Dropdown(
                     id='genre-dropdown',
@@ -41,8 +51,9 @@ def user_dropdown():
                     placeholder="Select your ID",
                     )
 
-def opinion_opts():
-    return dcc.RadioItems(
+def opinion_opts(hidden=False):
+    if hidden:
+        return dcc.RadioItems(
         id='opinion-radio',
         options=[
             {'label': 'Watched', 'value': 'Watched'},
@@ -52,15 +63,37 @@ def opinion_opts():
         ],
         value='Interested',
         labelStyle={'display': 'inline-block'},
-        style = {'padding-left': '2px'}
+        style = {'display': 'none'}
     )
+    else:
+        return dcc.RadioItems(
+            id='opinion-radio',
+            options=[
+                {'label': 'Watched', 'value': 'Watched'},
+                {'label': 'Interested', 'value': 'Interested'},
+                {'label': 'Not Interested', 'value': 'Not Interested'},
 
-def rating_opts():
+            ],
+            value='Interested',
+            labelStyle={'display': 'inline-block'},
+            style = {'padding-left': '2px'}
+        )
+
+def rating_opts(hidden=False):
     opts = []
     for r in range(1, 6):
         opts.append( {'label': r, 'value': r} )
 
-    return dcc.RadioItems(
+    if hidden:
+        return dcc.RadioItems(
+            id='rating-radio',
+            options=opts,
+            value=opts[0]['value'],
+            labelStyle={'display': 'inline-block'},
+            style={'display': 'none'}
+        )
+    else:
+        return dcc.RadioItems(
         id = 'rating-radio',
         options = opts,
         value = opts[0]['value'],
@@ -97,9 +130,9 @@ def display_page(pathname):
         current_user = User(len(users)+1)
         return html.Div([html.H5('Welcome, User #' + str(current_user.u_id)),
             html.Div([
-                html.Div([ genre_dropdown(), html.Br()], id='new-content1'),
+                html.Div([ genre_dropdown(), html.Br(), opinion_opts(True), ], id='new-content1'),
                 html.Div(id='new-content2'),
-                html.Div(id='new-content3'),
+                html.Div([rating_opts(True)], id='new-content3'),
 
                 html.Button(id='submit-button', n_clicks=0, children='Submit')]),
                 ], style={'padding-left':'10%', 'padding-right':'10%'})
@@ -154,17 +187,28 @@ def update_output(n_clicks, g, o, r):
 @app.callback(
     Output('new-content1', 'children'),
     [Input('submit-button', 'n_clicks')],
-    [State('genre-dropdown', 'value')])
+    [State('genre-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
 
-def update_output(n_clicks, value):
+def update_output(n_clicks, g, o, r):
     global current_movie
-    m, title  = first_recomm(value)
+    global cycled_movies
+
+    if n_clicks == 0:
+        raise dash.exceptions.PreventUpdate()
+
+    elif n_clicks == 1:
+        m, title  = first_recomm(g)
+        current_movie = m
+        cycled_movies.append(current_movie)
+
+        return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title),opinion_opts()]
+
+
+    m, title = subseq_recomm(current_movie,cycled_movies,o)
     current_movie = m
+    cycled_movies.append(current_movie)
 
-    return [html.H5('Recommendation: '), html.H6(title),
-    opinion_opts()]
-
-    # return html.Div(, style={'display': 'none'})
+    return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title), opinion_opts()]
 
 
 # =======================================================================================
@@ -182,7 +226,6 @@ def update_output(n_clicks, value):
         if value == 'Interested':
             current_user.whitelist.append(current_movie)
             print(current_user.whitelist)
-
 
             return 'Interested'
         elif value == 'Not Interested':
@@ -204,7 +247,7 @@ def update_output(value):
         # html.Button(id='opinion-button', n_clicks=0, children='Submit')]
     else:
         # return [html.Button(id='opinion-button', n_clicks=0, children='Next')]
-        return
+        return [rating_opts(True),]
 
 # =======================================================================================
 # Callback of existing user's selection
@@ -212,6 +255,10 @@ def update_output(value):
     Output('output-container2', 'children'),
     [Input('user-dropdown', 'value')])
 def update_output(value):
+
+    if value is None:
+        raise dash.exceptions.PreventUpdate()
+
     v, m = get_recommendation(value)
     return [html.H5('Your most similar user: '), html.H6(v),
     html.H5('Recommendation based on your ratings: '), html.H6(m),
