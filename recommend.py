@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import pairwise_distances
 from user import User
+from scipy import spatial
 import pickle
 
 '''
@@ -27,6 +28,7 @@ def gen_user_matrix():
 
 	matrix = np.zeros(shape=(len(users), len(movies)))
 
+	cnt = 0
 	for index, row in ratings_df.iterrows():
 		u = users.index(row['userId'])
 		m = movies.index(row['movieId'])
@@ -144,7 +146,7 @@ def first_recomm(selected_genres):
 
 def subseq_recomm(current_movie,cycled_movies,opinion):
 
-	if opinion == 'Interested':
+	if opinion == 'Interested' or 'Watched':
 		m = get_movie_recommendation(current_movie,cycled_movies)
 	else:
 		m = get_movie_recommendation_inverse(current_movie,cycled_movies)
@@ -152,7 +154,24 @@ def subseq_recomm(current_movie,cycled_movies,opinion):
 
 	return m['movieId'], m['title']
 
+def store_recomm(m_id,rating):
+	#print(movies)
+	movie_index = movies.index(m_id)
+	new_user_movie_ratings[movie_index] = rating
 
+def recomm_new_user(exceptions):
+	simList = np.array([1 - spatial.distance.cosine(new_user_movie_ratings,x) for x in user_matrix])
+	#print(simList)
+	simListOrderIndex = simList.argsort().tolist()
+	
+	#j = simListOrderIndex[-1]
+	
+	# get all movies rated by similar user
+	for j in reversed(simListOrderIndex):
+		for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
+			if new_user_movie_ratings[movies.index(int(v['movieId']))] == 0.0 and (not int(v['movieId']) in exceptions):
+				m = movies_df.loc[movies_df['movieId'] == v['movieId']]
+				return v['movieId'], m['title']
 
 # ------------------------------------------------------------------------------------------------
 
@@ -244,6 +263,7 @@ else:
 	ratings_df = pickle.load(file)
 	file.close()
 
+new_user_movie_ratings = np.zeros(user_matrix.shape[1])
 
 
 

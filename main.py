@@ -9,6 +9,8 @@ from user import User
 current_user = None
 current_movie = None
 cycled_movies = []
+num_watched = 0
+user_rec_thresh = 7
 
 print(dcc.__version__) # 0.6.0 or above is required
 
@@ -192,21 +194,30 @@ def update_output(n_clicks, g, o, r):
 def update_output(n_clicks, g, o, r):
     global current_movie
     global cycled_movies
+    global num_watched
+
+    #print(n_clicks)
 
     if n_clicks == 0:
         raise dash.exceptions.PreventUpdate()
 
     elif n_clicks == 1:
         m, title  = first_recomm(g)
-        current_movie = m
-        cycled_movies.append(current_movie)
+        #print('first_rec')
 
-        return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title),opinion_opts()]
-
-
-    m, title = subseq_recomm(current_movie,cycled_movies,o)
+    elif num_watched < user_rec_thresh:
+        m, title = subseq_recomm(current_movie,cycled_movies,o)
+        #print('subseq_rec')
+    else:
+        #print('useruser_rec')
+        m, title = recomm_new_user(cycled_movies)
+    
     current_movie = m
     cycled_movies.append(current_movie)
+    
+    if o == 'Watched':
+        store_recomm(current_movie,r)
+        num_watched += 1
 
     return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title), opinion_opts()]
 
