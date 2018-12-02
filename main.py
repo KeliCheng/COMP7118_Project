@@ -42,16 +42,6 @@ def genre_dropdown(hidden=False):
                     multi=True
                     )
 
-def user_dropdown():
-    opt = []
-    for u in users:
-        opt.append({'label': u, 'value': u})
-
-    return dcc.Dropdown(
-                    id='user-dropdown',
-                    options=opt,
-                    placeholder="Select your ID",
-                    )
 
 def opinion_opts(hidden=False):
     if hidden:
@@ -103,6 +93,17 @@ def rating_opts(hidden=False):
         style = {'padding-left': '2px'}
     )
 
+def user_dropdown():
+    opt = []
+    for u in users:
+        opt.append({'label': u, 'value': u})
+
+    return dcc.Dropdown(
+                    id='user-dropdown',
+                    options=opt,
+                    placeholder="Select your ID",
+                    )
+
 # =======================================================================================
 
 app.layout = html.Div([
@@ -129,25 +130,28 @@ def display_page(pathname):
     global current_user
 
     if pathname == '/new': # new user
-        current_user = User(len(users)+1)
+        current_user = User(users[-1]+1) # create user and set u_id
+
         return html.Div([html.H5('Welcome, User #' + str(current_user.u_id)),
             html.Div([
                 html.Div([ genre_dropdown(), html.Br(), opinion_opts(True), ], id='new-content1'),
                 html.Div(id='new-content2'),
                 html.Div([rating_opts(True)], id='new-content3'),
-
+                html.Br(),
                 html.Button(id='submit-button', n_clicks=0, children='Submit')]),
                 ], style={'padding-left':'10%', 'padding-right':'10%'})
 
     elif pathname == '/existing': # existing user
         return html.Div([
-            # html.H3('You are on page {}'.format(pathname))
-            # html.H3('existing')
-            html.H6('Select your ID: '),
-            html.Div([
-                user_dropdown(),
-                html.Div(id='output-container2')
-                ])
+                # user_dropdown(),
+                # html.Div(id='existing-content1'),
+                html.Div([html.H6('Select your ID: '),
+                    user_dropdown(),
+                    html.Br(),
+                    opinion_opts(True), ], id='existing-content1'),
+                html.Div([rating_opts(True)], id='existing-content2'),
+                html.Br(),
+                html.Button(id='existing-submit', n_clicks=0, children='Submit')
 
             ], style={'padding-left':'10%', 'padding-right':'10%'})
     else:
@@ -203,6 +207,7 @@ def update_output(n_clicks, g, o, r):
 
     elif n_clicks == 1:
         m, title  = first_recomm(g)
+        cycled_movies = []
         #print('first_rec')
 
     elif num_watched < user_rec_thresh:
@@ -211,10 +216,10 @@ def update_output(n_clicks, g, o, r):
     else:
         #print('useruser_rec')
         m, title = recomm_new_user(cycled_movies)
-    
+
     current_movie = m
     cycled_movies.append(current_movie)
-    
+
     if o == 'Watched':
         store_recomm(current_movie,r)
         num_watched += 1
@@ -260,25 +265,83 @@ def update_output(value):
         # return [html.Button(id='opinion-button', n_clicks=0, children='Next')]
         return [rating_opts(True),]
 
-# =======================================================================================
+
+# ======================================================================================= #
+# =============================== EXISTING USERS ======================================== #
+# ======================================================================================= #
+n_not_interested = 0
+n_similar_user = 0
+reviewed_movies = []
 # Callback of existing user's selection
 @app.callback(
-    Output('output-container2', 'children'),
-    [Input('user-dropdown', 'value')])
-def update_output(value):
+    Output('existing-content1', 'children'),
+    [Input('existing-submit', 'n_clicks')],
+    [State('user-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
+def update_output(n_clicks, u, o, r):
+    global current_user, current_movie, n_similar_user, reviewed_movies
 
-    if value is None:
+    m = None
+
+    print(u, o, r, n_clicks)
+
+    if u is None or n_clicks == 0:
         raise dash.exceptions.PreventUpdate()
 
-    v, m = get_recommendation(value)
-    return [html.H5('Your most similar user: '), html.H6(v),
-    html.H5('Recommendation based on your ratings: '), html.H6(m),
-    opinion_opts(),
-    html.Button(id='existing-submit', n_clicks=0, children='Submit')]
+    if n_clicks == 1:
+        # initialization
+        n_similar_user = 1
+        reviewed_movies = []
+        n_not_interested = 0
+
+        # get first recommendation
+        v, m, title, n_similar_user= get_recommendation(u, n_similar_user, reviewed_movies)
+
+    else:
+        if o == "Interested":
+            print("Interested")
+            print(reviewed_movies)
+
+            # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
+            m = get_movie_recommendation(m,reviewed_movies)
+            print(m)
+
+        elif o == "Not Interested":
+            # n_not_interested += 1
+            # if n_not_interested > 3:
+            #     n_similar_user += 1 # get next user
+            # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
+            m = get_movie_recommendation_inverse(m,reviewed_movies)
+        else: # watched
+            if r >= 3:
+                # recommend a similar movie
+                m = get_movie_recommendation(m,reviewed_movies)
+            else:
+                m = get_movie_recommendation_inverse(m,reviewed_movies)
+
+            m = movies_df.iloc[m]
+            title = m['title']
+
+    current_movie = m
+    reviewed_movies.append(m)
+
+    return [
+    html.H5('Your most similar user: '), html.H6(v),
+    html.H5('Recommendation based on your ratings: '), html.H6(title),
+    opinion_opts(),]
     # return 'You have selected "{}"'.format(value)
 
+# Showing rating options
+@app.callback(
+    Output('existing-content2', 'children'),
+    [Input('opinion-radio', 'value')])
 
-
+def update_output(value):
+    if value == 'Watched':
+        return [rating_opts(),]
+        # html.Button(id='opinion-button', n_clicks=0, children='Submit')]
+    else:
+        # return [html.Button(id='opinion-button', n_clicks=0, children='Next')]
+        return [rating_opts(True),]
 
 
 if __name__ == '__main__':

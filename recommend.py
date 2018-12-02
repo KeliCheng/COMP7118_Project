@@ -106,16 +106,25 @@ def least_similar_item(cos_sim, l, item, n):
 
 ''' find a most similar user based on current users profile '''
 ''' and recommend an unseen movie '''
-def get_recommendation(u_id):
+# def get_recommendation(u_id):
+def get_recommendation(u_id, n_similar_user, reviewed_movies):
 	global user_matrix, user_cos_sim, users, ratings_df
 
-	j = most_similar_item(user_cos_sim, users, u_id, 1) # find most similar user
+	while True:
+		j = most_similar_item(user_cos_sim, users, u_id, n_similar_user) # find most similar user
 
-	# get all movies rated by similar user
-	for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
-		if user_matrix[users.index(u_id)][int(v['movieId'])] == 0.0:
-			m = movies_df.loc[movies_df['movieId'] == v['movieId']]
-			return int(v['userId']), m['title'].to_string()
+		# get all movies rated by similar user
+		for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
+			if user_matrix[users.index(u_id)][int(v['movieId'])] == 0.0:
+				m = movies_df.loc[movies_df['movieId'] == v['movieId']]
+				# return int(v['userId']), int(m['movieId']), m['title'].to_string()
+				if int(m['movieId']) not in reviewed_movies:
+					return int(v['userId']), int(m['movieId']), m['title'].to_string(), n_similar_user
+
+		n_similar_user += 1
+
+		if n >= len(users):
+			return -1, -1, 'None', -1
 
 
 ''' find a most similar movie based on genre and recommend '''
@@ -129,7 +138,7 @@ def get_movie_recommendation(m_id,cycled_movies):
 ''' find a least similar movie based on genre and recommend '''
 def get_movie_recommendation_inverse(m_id,cycled_movies):
 	global movie_matrix, movies_cos_sim, movies, ratings_df
-	j = least_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find most similar movie
+	j = least_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find least similar movie
 
 	return j
 
@@ -163,9 +172,9 @@ def recomm_new_user(exceptions):
 	simList = np.array([1 - spatial.distance.cosine(new_user_movie_ratings,x) for x in user_matrix])
 	#print(simList)
 	simListOrderIndex = simList.argsort().tolist()
-	
+
 	#j = simListOrderIndex[-1]
-	
+
 	# get all movies rated by similar user
 	for j in reversed(simListOrderIndex):
 		for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
@@ -264,9 +273,4 @@ else:
 	file.close()
 
 new_user_movie_ratings = np.zeros(user_matrix.shape[1])
-
-
-
-# first_recomm(['Comedy'])
-
 
