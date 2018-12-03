@@ -93,16 +93,24 @@ def rating_opts(hidden=False):
         style = {'padding-left': '2px'}
     )
 
-def user_dropdown():
+def user_dropdown(hidden=False):
     opt = []
     for u in users:
         opt.append({'label': u, 'value': u})
 
+    if hidden:
+        return dcc.Dropdown(
+                id='user-dropdown',
+                options=opt,
+                placeholder="Select your ID",
+                style={'display': 'none'}
+                )
+
     return dcc.Dropdown(
-                    id='user-dropdown',
-                    options=opt,
-                    placeholder="Select your ID",
-                    )
+            id='user-dropdown',
+            options=opt,
+            placeholder="Select your ID",
+            )
 
 # =======================================================================================
 
@@ -272,19 +280,16 @@ def update_output(value):
 n_not_interested = 0
 n_similar_user = 0
 reviewed_movies = []
+glob_v = ''
 # Callback of existing user's selection
 @app.callback(
     Output('existing-content1', 'children'),
     [Input('existing-submit', 'n_clicks')],
     [State('user-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
 def update_output(n_clicks, u, o, r):
-    global current_user, current_movie, n_similar_user, reviewed_movies
+    global current_user, current_movie, n_similar_user, reviewed_movies, glob_v
 
-    m = None
-
-    print(u, o, r, n_clicks)
-
-    if u is None or n_clicks == 0:
+    if n_clicks == 0:
         raise dash.exceptions.PreventUpdate()
 
     if n_clicks == 1:
@@ -294,38 +299,39 @@ def update_output(n_clicks, u, o, r):
         n_not_interested = 0
 
         # get first recommendation
-        v, m, title, n_similar_user= get_recommendation(u, n_similar_user, reviewed_movies)
-
+        glob_v, current_movie, title, n_similar_user= get_recommendation(u, n_similar_user, reviewed_movies)
+        current_movie = movies.index(current_movie)
     else:
+
         if o == "Interested":
             print("Interested")
             print(reviewed_movies)
-
+            print(current_movie)
             # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
-            m = get_movie_recommendation(m,reviewed_movies)
-            print(m)
+            current_movie = get_movie_recommendation(current_movie,reviewed_movies)
 
         elif o == "Not Interested":
             # n_not_interested += 1
             # if n_not_interested > 3:
             #     n_similar_user += 1 # get next user
             # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
-            m = get_movie_recommendation_inverse(m,reviewed_movies)
+            current_movie = get_movie_recommendation_inverse(current_movie,reviewed_movies)
+
         else: # watched
             if r >= 3:
                 # recommend a similar movie
-                m = get_movie_recommendation(m,reviewed_movies)
+                current_movie = get_movie_recommendation(current_movie,reviewed_movies)
             else:
-                m = get_movie_recommendation_inverse(m,reviewed_movies)
+                current_movie = get_movie_recommendation_inverse(current_movie,reviewed_movies)
 
-            m = movies_df.iloc[m]
-            title = m['title']
+    m = movies_df.iloc[current_movie]
+    title = m['title']
 
-    current_movie = m
-    reviewed_movies.append(m)
+    current_movie = m['movieId']
+    reviewed_movies.append(current_movie)
 
-    return [
-    html.H5('Your most similar user: '), html.H6(v),
+    return [user_dropdown(True),
+    html.H5('Your most similar user: '), html.H6(glob_v),
     html.H5('Recommendation based on your ratings: '), html.H6(title),
     opinion_opts(),]
     # return 'You have selected "{}"'.format(value)
