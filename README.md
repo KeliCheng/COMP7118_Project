@@ -4,11 +4,12 @@ TODO:
 - System:
 	New users:
 		1. recommendation based on user's opinion (interested, not interested, watched)
-			IMPLEMENTED, NEEDS REVIEW
+			- IMPLEMENTED, NEEDS REVIEW
 		2. save profile
 
 	Existing user:
 		recommendation based on opinions
+		- IMPLEMENTED, NEEDS REVIEW
 
 
 - Data:
