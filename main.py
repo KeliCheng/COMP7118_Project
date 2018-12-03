@@ -2,6 +2,7 @@ import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
+from movie_imdb_info import *
 from recommend import *
 from user import User
 
@@ -232,7 +233,11 @@ def update_output(n_clicks, g, o, r):
         store_recomm(current_movie,r)
         num_watched += 1
 
-    return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title), opinion_opts()]
+    imdbinfo = get_movie_info(current_movie)
+    thumbnail = imdbinfo['cover url']
+    plot = imdbinfo.get('plot outline')
+
+    return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title), html.Img(src=thumbnail),html.Div([plot]),opinion_opts( )]
 
 
 # =======================================================================================
@@ -327,12 +332,13 @@ def update_output(n_clicks, u, o, r):
     m = movies_df.iloc[current_movie]
     title = m['title']
 
-    current_movie = m['movieId']
-    reviewed_movies.append(current_movie)
+    imdbinfo = get_movie_info(m['movieId'])
+    thumbnail = imdbinfo['cover url']
+    plot = imdbinfo.get('plot outline')
 
     return [user_dropdown(True),
     html.H5('Your most similar user: '), html.H6(glob_v),
-    html.H5('Recommendation based on your ratings: '), html.H6(title),
+    html.H5('Recommendation based on your ratings: '), html.H6(title), html.Img(src=thumbnail), html.Div([plot]),
     opinion_opts(),]
     # return 'You have selected "{}"'.format(value)
 
@@ -349,8 +355,9 @@ def update_output(value):
         # return [html.Button(id='opinion-button', n_clicks=0, children='Next')]
         return [rating_opts(True),]
 
-
 if __name__ == '__main__':
+    # Loading screen CSS
     app.run_server(debug=True)
+
 
 
