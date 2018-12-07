@@ -3,12 +3,19 @@ import numpy as np
 import pandas as pd
 import copy
 
-def top_cosine_similarity(data, movie_id):
-    index = movie_id #- 1 # Movie id starts from 1
-    movie_row = data[movie_id, :]
-    magnitude = np.sqrt(np.einsum('ij, ij -> i', data, data))
-    similarity = np.dot(movie_row, data.T) / (magnitude[index] * magnitude)
-    sort_indexes = np.argsort(-similarity)
+def get_cos_sim(matrix,movieId):
+
+    # Get the row for the movie/user in question
+    movie_row = matrix[movieId, :]
+    
+    # Get the size of vector
+    size = np.sqrt(np.einsum('ij, ij -> i', matrix, matrix))
+    
+    # Get the cosine similarity here
+    simRating = np.dot(movie_row, matrix.T) / (size[movieId] * size)
+    
+    # sort them by similarity in descending order
+    sort_indexes = np.argsort(-simRating)
     return sort_indexes
 
 def load_svd_data():
@@ -93,7 +100,7 @@ def user_predict(like,dislike,watched,userRatingColumns,Vt):
     for i in sorted(watchedIndexes, reverse=True):
         del newUserRatingColumns[i]
 
-    resultsList = top_cosine_similarity(V, 0)
+    resultsList = get_cos_sim(V, 0)
 
     for index,i in enumerate(resultsList):
         if i == 0:
@@ -129,7 +136,7 @@ def exist_user_predict(userId,watched,userColumns,userRatingColumns,Vt,U):
     for i in sorted(watchedIndexes, reverse=True):
         del newUserRatingColumns[i]
 
-    resultsList = top_cosine_similarity(V, 0)
+    resultsList = get_cos_sim(V, 0)
 
     for index,i in enumerate(resultsList):
         if i == 0:
