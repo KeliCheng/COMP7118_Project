@@ -11,7 +11,10 @@ current_user = None
 current_movie = None
 cycled_movies = []
 num_watched = 0
-user_rec_thresh = 7
+user_rec_thresh = 3
+liked = []
+disliked = []
+glob_genres = []
 
 print(dcc.__version__) # 0.6.0 or above is required
 
@@ -62,7 +65,7 @@ def opinion_opts(hidden=False):
         return dcc.RadioItems(
             id='opinion-radio',
             options=[
-                {'label': 'Watched', 'value': 'Watched'},
+                #{'label': 'Watched', 'value': 'Watched'},
                 {'label': 'Interested', 'value': 'Interested'},
                 {'label': 'Not Interested', 'value': 'Not Interested'},
 
@@ -96,7 +99,7 @@ def rating_opts(hidden=False):
 
 def user_dropdown(hidden=False):
     opt = []
-    for u in users:
+    for u in userColumns:
         opt.append({'label': u, 'value': u})
 
     if hidden:
@@ -113,6 +116,32 @@ def user_dropdown(hidden=False):
             placeholder="Select your ID",
             )
 
+def like_dropdown():
+    opt = []
+
+    for index,m in movies_df.iterrows():
+        opt.append({'label': m['title'], 'value': m['movieId']})
+
+    return dcc.Dropdown(
+        id='like_dropdown',
+        options=opt,
+        placeholder="Select movies you like",
+        multi=True,
+    )
+
+def dislike_dropdown():
+    opt = []
+
+    for index,m in movies_df.iterrows():
+        opt.append({'label': m['title'], 'value': m['movieId']})
+
+    return dcc.Dropdown(
+        id='dislike_dropdown',
+        options=opt,
+        placeholder="Select movies you dislike",
+        multi=True,
+    )
+
 # =======================================================================================
 
 app.layout = html.Div([
@@ -122,6 +151,8 @@ app.layout = html.Div([
     dcc.Link('New User', href='/new'),
     html.Br(),
     dcc.Link('Existing User', href='/existing'),
+    html.Br(),
+    dcc.Link('Movie Recommender', href='/recommender'),
     # html.Button('New User', id='button'),
 
 
@@ -138,8 +169,12 @@ app.layout = html.Div([
 def display_page(pathname):
     global current_user
 
+    cycled_movies = []
+    liked = []
+    disliked = []
+
     if pathname == '/new': # new user
-        current_user = User(users[-1]+1) # create user and set u_id
+        current_user = User(1) #User(users[-1]+1)  # create user and set u_id
 
         return html.Div([html.H5('Welcome, User #' + str(current_user.u_id)),
             html.Div([
@@ -157,47 +192,30 @@ def display_page(pathname):
                 html.Div([html.H6('Select your ID: '),
                     user_dropdown(),
                     html.Br(),
-                    opinion_opts(True), ], id='existing-content1'),
-                html.Div([rating_opts(True)], id='existing-content2'),
+                    html.Button(id='existing-submit', n_clicks=0, children='Submit'),
+                    html.Br(),
+                    html.Div([], id='existing-output')
+                          ]),
                 html.Br(),
-                html.Button(id='existing-submit', n_clicks=0, children='Submit')
-
+            ], style={'padding-left':'10%', 'padding-right':'10%'})
+    elif pathname == '/recommender': # existing user
+        return html.Div([
+                # user_dropdown(),
+                # html.Div(id='existing-content1'),
+                html.Div([html.H6('Select Movies you like and dislike: '),
+                    like_dropdown(),
+                      html.Br(),
+                    dislike_dropdown(),
+                      html.Br(),
+                    html.Button(id='recommender_submit', n_clicks=0, children='Submit'),
+                    html.Br(),
+                          html.Div([],id='recommender_output'),
+                    #opinion_opts(True),
+                    ], id='recommender-1'),
+                html.Br(),
             ], style={'padding-left':'10%', 'padding-right':'10%'})
     else:
         return
-
-# =======================================================================================
-# Callback of new user's selection
-'''
-@app.callback(
-    Output('new-content1', 'children'),
-    [Input('submit-button', 'n_clicks')],
-    [State('genre-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
-def update_output(n_clicks, g, o, r):
-    global current_movie
-
-    print(g, o, r)
-
-    if n_clicks == 1:
-
-        m, title  = first_recomm(value)
-        current_movie = m
-
-         return [html.H5('Recommendation: '), html.H6(title), genre_dropdown(),
-         opinion_opts(), rating_opts()]
-
-     else:
-         if o == "Interested":
-             return [html.H5('Interested'), genre_dropdown(),
-             opinion_opts(), rating_opts()]
-         elif o == "Not Interested":
-             return [html.H5('Not Interested'), genre_dropdown(),
-             opinion_opts(), rating_opts()]
-         else:
-             return [html.H5('Give a rate'), genre_dropdown(),
-             opinion_opts(), rating_opts()]
-'''
-
 
 @app.callback(
     Output('new-content1', 'children'),
@@ -207,37 +225,46 @@ def update_output(n_clicks, g, o, r):
 def update_output(n_clicks, g, o, r):
     global current_movie
     global cycled_movies
-    global num_watched
+    global liked
+    global disliked
+    global glob_genres
 
-    #print(n_clicks)
+    rectext = ''
 
     if n_clicks == 0:
         raise dash.exceptions.PreventUpdate()
 
     elif n_clicks == 1:
-        m, title  = first_recomm(g)
-        cycled_movies = []
-        #print('first_rec')
+        rectext = 'Best-In-Genre Recommendation: '
+        glob_genres = g
+        m, title  = first_recomm(g,cycled_movies)
 
-    elif num_watched < user_rec_thresh:
-        m, title = subseq_recomm(current_movie,cycled_movies,o)
-        #print('subseq_rec')
+    elif len(cycled_movies) < user_rec_thresh:
+        rectext = 'Best-In-Genre Recommendation: '
+        if o == 'Interested':
+            liked.append(current_movie)
+        else:
+            disliked.append(current_movie)
+
+        m, title = first_recomm(glob_genres,cycled_movies)
     else:
-        #print('useruser_rec')
-        m, title = recomm_new_user(cycled_movies)
+        rectext = 'User-Item SVD Recommendation: '
+
+        if o == 'Interested':
+            liked.append(current_movie)
+        else:
+            disliked.append(current_movie)
+
+        m, title = recomm_new_user(liked,disliked)
+
 
     current_movie = m
     cycled_movies.append(current_movie)
 
-    if o == 'Watched':
-        store_recomm(current_movie,r)
-        num_watched += 1
-
     imdbinfo = get_movie_info(current_movie)
     thumbnail = imdbinfo['cover url']
-    plot = imdbinfo.get('plot outline')
 
-    return [genre_dropdown(True), html.H5('Recommendation: '), html.H6(title), html.Img(src=thumbnail),html.Div([plot]),opinion_opts( )]
+    return [genre_dropdown(True), html.H5(rectext), html.H6(title), html.Img(src=thumbnail),opinion_opts( )]
 
 
 # =======================================================================================
@@ -254,7 +281,6 @@ def update_output(n_clicks, value):
     if n_clicks > 0:
         if value == 'Interested':
             current_user.whitelist.append(current_movie)
-            print(current_user.whitelist)
 
             return 'Interested'
         elif value == 'Not Interested':
@@ -273,10 +299,32 @@ def update_output(n_clicks, value):
 def update_output(value):
     if value == 'Watched':
         return [rating_opts(),]
-        # html.Button(id='opinion-button', n_clicks=0, children='Submit')]
     else:
-        # return [html.Button(id='opinion-button', n_clicks=0, children='Next')]
         return [rating_opts(True),]
+
+@app.callback(
+    Output('recommender_output', 'children'),
+    [Input('recommender_submit', 'n_clicks')],
+    [State('like_dropdown', 'value'), State('dislike_dropdown', 'value')])
+def update_output(n_clicks, like, dislike):
+
+    if n_clicks == 0:
+        raise dash.exceptions.PreventUpdate()
+
+    if (like is None or like == []) and (dislike is None or dislike == []):
+        raise dash.exceptions.PreventUpdate()
+
+    if like is None:
+        like = []
+    if dislike is None:
+        dislike = []
+
+    current_movie, title = recomm_new_user(like,dislike)
+
+    imdbinfo = get_movie_info(current_movie)
+    thumbnail = imdbinfo['cover url']
+
+    return [html.H5('Recommendation: '), html.H6(title), html.Img(src=thumbnail)]
 
 
 # ======================================================================================= #
@@ -285,62 +333,27 @@ def update_output(value):
 n_not_interested = 0
 n_similar_user = 0
 reviewed_movies = []
-glob_v = ''
+#glob_v = ''
 # Callback of existing user's selection
 @app.callback(
-    Output('existing-content1', 'children'),
+    Output('existing-output', 'children'),
     [Input('existing-submit', 'n_clicks')],
-    [State('user-dropdown', 'value'), State('opinion-radio', 'value'), State('rating-radio', 'value')])
-def update_output(n_clicks, u, o, r):
-    global current_user, current_movie, n_similar_user, reviewed_movies, glob_v
+    [State('user-dropdown', 'value'),
+    ])
+def update_output(n_clicks,u):
+    global current_user, current_movie, n_similar_user, cycled_movies, glob_v
 
     if n_clicks == 0:
         raise dash.exceptions.PreventUpdate()
 
-    if n_clicks == 1:
-        # initialization
-        n_similar_user = 1
-        reviewed_movies = []
-        n_not_interested = 0
+    current_movie, title = recomm_exist_user(cycled_movies,u)
 
-        # get first recommendation
-        glob_v, current_movie, title, n_similar_user= get_recommendation(u, n_similar_user, reviewed_movies)
-        current_movie = movies.index(current_movie)
-    else:
+    cycled_movies.append(current_movie)
 
-        if o == "Interested":
-            print("Interested")
-            print(reviewed_movies)
-            print(current_movie)
-            # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
-            current_movie = get_movie_recommendation(current_movie,reviewed_movies)
-
-        elif o == "Not Interested":
-            # n_not_interested += 1
-            # if n_not_interested > 3:
-            #     n_similar_user += 1 # get next user
-            # v, m, title, n_similar_user = get_recommendation(u, n_similar_user, reviewed_movies)
-            current_movie = get_movie_recommendation_inverse(current_movie,reviewed_movies)
-
-        else: # watched
-            if r >= 3:
-                # recommend a similar movie
-                current_movie = get_movie_recommendation(current_movie,reviewed_movies)
-            else:
-                current_movie = get_movie_recommendation_inverse(current_movie,reviewed_movies)
-
-    m = movies_df.iloc[current_movie]
-    title = m['title']
-
-    imdbinfo = get_movie_info(m['movieId'])
+    imdbinfo = get_movie_info(current_movie)
     thumbnail = imdbinfo['cover url']
-    plot = imdbinfo.get('plot outline')
 
-    return [user_dropdown(True),
-    html.H5('Your most similar user: '), html.H6(glob_v),
-    html.H5('Recommendation based on your ratings: '), html.H6(title), html.Img(src=thumbnail), html.Div([plot]),
-    opinion_opts(),]
-    # return 'You have selected "{}"'.format(value)
+    return [html.H5('Recommendation based on your ratings: '), html.H6(title), html.Img(src=thumbnail)]
 
 # Showing rating options
 @app.callback(

@@ -4,6 +4,7 @@ from sklearn.metrics import pairwise_distances
 from user import User
 from scipy import spatial
 import pickle
+from recommend_movies_svd import *
 
 '''
 ratings_file = 'ml-latest-small/ratings.csv'
@@ -12,29 +13,11 @@ export = 'ml-latest-small/ratings_new.csv'
 '''
 
 # New subset of the full-size MovieLens set
-ratings_file = 'ml-subset/finalRatings.csv'
-movies_file = 'ml-subset/finalMovies.csv'
-export = 'ml-subset/finalRatings_new.csv'
+#ratings_file = 'ml-svd/finalRatings.csv'
+movies_file = 'ml-svd/finalMovies.csv'
+export = 'ml-svd/finalRatings_new.csv'
 
-num_genre_col = 10 # number of columns after splitting the genre string of movies df
-
-
-'''generate users matrix'''
-def gen_user_matrix():
-	global ratings_df
-
-	users = ratings_df['userId'].unique().tolist()
-	movies = ratings_df['movieId'].unique().tolist()
-
-	matrix = np.zeros(shape=(len(users), len(movies)))
-
-	cnt = 0
-	for index, row in ratings_df.iterrows():
-		u = users.index(row['userId'])
-		m = movies.index(row['movieId'])
-		matrix[u, m] = row['rating']
-	return users, matrix
-
+num_genre_col = 6 # number of columns after splitting the genre string of movies df
 
 '''generate movies matrix'''
 def gen_movie_matrix():
@@ -104,173 +87,64 @@ def least_similar_item(cos_sim, l, item, n):
 	return j # the index
 
 
-''' find a most similar user based on current users profile '''
-''' and recommend an unseen movie '''
-# def get_recommendation(u_id):
-def get_recommendation(u_id, n_similar_user, reviewed_movies):
-	global user_matrix, user_cos_sim, users, ratings_df
-
-	while True:
-		j = most_similar_item(user_cos_sim, users, u_id, n_similar_user) # find most similar user
-
-		# get all movies rated by similar user
-		for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
-			if user_matrix[users.index(u_id)][int(v['movieId'])] == 0.0:
-				m = movies_df.loc[movies_df['movieId'] == v['movieId']]
-				# return int(v['userId']), int(m['movieId']), m['title'].to_string()
-				if int(m['movieId']) not in reviewed_movies:
-					return int(v['userId']), int(m['movieId']), m['title'].to_string(), n_similar_user
-
-		n_similar_user += 1
-
-		if n >= len(users):
-			return -1, -1, 'None', -1
-
-
-''' find a most similar movie based on genre and recommend '''
-def get_movie_recommendation(m_id,cycled_movies):
-	global movie_matrix, movies_cos_sim, movies, ratings_df
-	j = most_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find most similar movie
-
-	return j
-
-
-''' find a least similar movie based on genre and recommend '''
-def get_movie_recommendation_inverse(m_id,cycled_movies):
-	global movie_matrix, movies_cos_sim, movies, ratings_df
-	j = least_similar_item_except(movies_cos_sim, movies, m_id, 1, cycled_movies) # find least similar movie
-
-	return j
-
-
-def first_recomm(selected_genres):
+def first_recomm(selected_genres,cycled_movies):
 	# find movies with highest ratings & in genres selected by the user
-	sorted_ratings = ratings_df.groupby('movieId').rating.mean().sort_values(ascending=False)
-	for m, r in sorted_ratings.items():
+	sorted_ratings = ratings_df.sort_values('bayesianRating', ascending=False)
+	for index, row in sorted_ratings.iterrows():
+		m = row['movieId']
+		if m in cycled_movies:
+			continue
+		#print(m,r)
 		m = movies_df.iloc[movies.index(m)]
 		for i in range(num_genre_col):
 			if m[i] in selected_genres:
 				return m['movieId'], m['title']
-
-
-def subseq_recomm(current_movie,cycled_movies,opinion):
-
-	if opinion == 'Interested' or 'Watched':
-		m = get_movie_recommendation(current_movie,cycled_movies)
-	else:
-		m = get_movie_recommendation_inverse(current_movie,cycled_movies)
-	m = movies_df.iloc[m]
-
-	return m['movieId'], m['title']
 
 def store_recomm(m_id,rating):
 	#print(movies)
 	movie_index = movies.index(m_id)
 	new_user_movie_ratings[movie_index] = rating
 
-def recomm_new_user(exceptions):
-	simList = np.array([1 - spatial.distance.cosine(new_user_movie_ratings,x) for x in user_matrix])
-	#print(simList)
-	simListOrderIndex = simList.argsort().tolist()
+def recomm_new_user(liked,disliked):
+	global movies_df
 
-	#j = simListOrderIndex[-1]
+	# Spit list of movies into alg, get movies back
+	results = user_predict(liked, disliked, liked+disliked, userRatingColumns, Vt)
 
-	# get all movies rated by similar user
-	for j in reversed(simListOrderIndex):
-		for index, v in ratings_df.loc[ratings_df['userId'] == users[j]].iterrows():
-			if new_user_movie_ratings[movies.index(int(v['movieId']))] == 0.0 and (not int(v['movieId']) in exceptions):
-				m = movies_df.loc[movies_df['movieId'] == v['movieId']]
-				return v['movieId'], m['title']
+	cycledTuple = tuple(liked+disliked)
+	for i in results:
+		if i not in cycledTuple:
+			m = movies_df.loc[movies_df['movieId'] == i]
+			return m['movieId'].values[0], m['title'].values[0]
+
+	return None
+
+def recomm_exist_user(watched,userId):
+	global movies_df
+
+	watched = sparseFinalDf.loc[userId]
+	watchedCols = []
+	for index,item in watched.iteritems():
+		if item == 0:
+			continue
+		watchedCols.append(index)
+
+	# Spit list of movies into alg, get movies back
+	results = exist_user_predict(userId, watchedCols, userColumns, userRatingColumns, Vt, U)
+
+	cycledTuple = tuple(watchedCols)
+	for i in results:
+		if i not in cycledTuple:
+			m = movies_df.loc[movies_df['movieId'] == i]
+			return m['movieId'].values[0], m['title'].values[0]
+
+	return None
+
 
 # ------------------------------------------------------------------------------------------------
 
-# Speed up the process by storing the matrix objects.
-# This way, we don't need to recalculate the distances when starting the app.
-# If the data to use changes, flip this switch for the first run.
-recalcMatrix = True
+U, Vt, userRatingColumns, userColumns, ratings_df, sparseFinalDf = load_svd_data()
 
-if recalcMatrix:
-	movies_df = pd.read_csv(movies_file)
-	ratings_df = pd.read_csv(ratings_file)
+movies_df = pd.read_csv(movies_file)
 
-	movies, genres, movie_matrix = gen_movie_matrix()
-	movies_cos_sim = 1-pairwise_distances(movie_matrix, metric="cosine")
-
-	users, user_matrix = gen_user_matrix()
-	user_cos_sim = 1-pairwise_distances(user_matrix, metric="cosine")
-
-	file = open('movies.pickle', 'wb')
-	pickle.dump(movies, file)
-	file.close()
-
-	file = open('genres.pickle', 'wb')
-	pickle.dump(genres, file)
-	file.close()
-
-	file = open('movie_matrix.pickle', 'wb')
-	pickle.dump(movie_matrix, file)
-	file.close()
-
-	file = open('movies_cos_sim.pickle', 'wb')
-	pickle.dump(movies_cos_sim, file)
-	file.close()
-
-	file = open('users.pickle', 'wb')
-	pickle.dump(users, file)
-	file.close()
-
-	file = open('user_matrix.pickle', 'wb')
-	pickle.dump(user_matrix, file)
-	file.close()
-
-	file = open('user_cos_sim.pickle', 'wb')
-	pickle.dump(user_cos_sim, file)
-	file.close()
-
-	file = open('movies_df.pickle', 'wb')
-	pickle.dump(movies_df, file)
-	file.close()
-
-	file = open('ratings_df.pickle', 'wb')
-	pickle.dump(ratings_df, file)
-	file.close()
-
-else:
-	file = open('movies.pickle', 'rb')
-	movies = pickle.load(file)
-	file.close()
-
-	file = open('genres.pickle', 'rb')
-	genres = pickle.load(file)
-	file.close()
-
-	file = open('movie_matrix.pickle', 'rb')
-	movie_matrix = pickle.load(file)
-	file.close()
-
-	file = open('movies_cos_sim.pickle', 'rb')
-	movies_cos_sim = pickle.load(file)
-	file.close()
-
-	file = open('users.pickle', 'rb')
-	users = pickle.load(file)
-	file.close()
-
-	file = open('user_matrix.pickle', 'rb')
-	user_matrix = pickle.load(file)
-	file.close()
-
-	file = open('user_cos_sim.pickle', 'rb')
-	user_cos_sim = pickle.load(file)
-	file.close()
-
-	file = open('movies_df.pickle', 'rb')
-	movies_df = pickle.load(file)
-	file.close()
-
-	file = open('ratings_df.pickle', 'rb')
-	ratings_df = pickle.load(file)
-	file.close()
-
-new_user_movie_ratings = np.zeros(user_matrix.shape[1])
-
+movies, genres, movie_matrix = gen_movie_matrix()
